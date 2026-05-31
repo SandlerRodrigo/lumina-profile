@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfil de Emergência — Lumina</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #F6F6F8;
+      min-height: 100dvh;
+      padding: 24px 16px 48px;
+      color: #2D2640;
+    }
+
+    .container { max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #AECBEB 0%, #7FA8D4 100%);
+      border-radius: 24px;
+      padding: 24px 20px 20px;
+      color: white;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .header-top { display: flex; align-items: center; gap: 14px; }
+    .avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 700; color: white;
+      flex-shrink: 0; border: 3px solid rgba(255,255,255,0.5);
+    }
+    .header-name { font-size: 22px; font-weight: 700; }
+    .header-sub { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .stats-bar {
+      display: flex; gap: 0;
+      background: rgba(255,255,255,0.25);
+      border-radius: 14px; overflow: hidden;
+    }
+    .stat {
+      flex: 1; padding: 10px 8px; text-align: center;
+      border-right: 1px solid rgba(255,255,255,0.25);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-val { font-size: 15px; font-weight: 600; }
+    .stat-label { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+
+    /* Cards */
+    .card {
+      background: white; border-radius: 20px;
+      border: 1px solid #EBEBEB;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer; user-select: none;
+    }
+    .card-header:hover { background: #FAFAFA; }
+    .icon-box {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .card-title { font-size: 15px; font-weight: 500; flex: 1; }
+    .chevron { font-size: 12px; color: #AAAAAA; transition: transform 0.2s; }
+    .chevron.open { transform: rotate(180deg); }
+    .card-body { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .card-body.hidden { display: none; }
+    .line { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #2D2640; line-height: 1.5; }
+    .bullet { color: #AECBEB; flex-shrink: 0; margin-top: 2px; }
+    .empty { font-size: 13px; color: #BBBBBB; font-style: italic; padding: 4px 0 4px 8px; }
+
+    /* Emergency banner */
+    .emergency {
+      background: #FFF0F0; border: 1.5px solid #FFCDD2;
+      border-radius: 20px; padding: 16px;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .emergency-icon { font-size: 24px; flex-shrink: 0; }
+    .emergency-title { font-size: 14px; font-weight: 600; color: #C62828; margin-bottom: 4px; }
+    .emergency-contact { font-size: 14px; color: #2D2640; }
+    .emergency-contact a { color: #1565C0; text-decoration: none; font-weight: 500; }
+
+    /* Footer */
+    .footer {
+      text-align: center; font-size: 11px; color: #AAAAAA; margin-top: 8px;
+    }
+    .footer strong { color: #7FA8D4; }
+
+    /* Not found */
+    .not-found {
+      text-align: center; padding: 60px 20px;
+      color: #AAAAAA; font-size: 15px; line-height: 1.7;
+    }
+    .not-found h2 { font-size: 20px; color: #2D2640; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <div class="not-found">
+      <h2>Carregando perfil…</h2>
+      <p>Se nada aparecer, o QR Code pode estar inválido.</p>
+    </div>
+  </div>
+
+  <script>
+    const SECTIONS = [
+      { key: 'diagnoses',               title: 'Diagnósticos',                  icon: '🧬', bg: '#DBEAFE' },
+      { key: 'medications',             title: 'Medicamentos & Alergias',        icon: '💊', bg: '#FFE4E6' },
+      { key: 'sensorySensitivities',    title: 'Sensibilidades Sensoriais',      icon: '👂', bg: '#FEF3C6' },
+      { key: 'communicationPreferences',title: 'Preferências de Comunicação',   icon: '💬', bg: '#F3E8FF' },
+    ];
+
+    function initials(name) {
+      return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    }
+
+    function lines(text) {
+      if (!text) return null;
+      return text.split('\n').filter(Boolean);
+    }
+
+    function render(p) {
+      const app = document.getElementById('app');
+      const hasContact = p.contactName;
+
+      app.innerHTML = `
+        <div class="header">
+          <div class="header-top">
+            <div class="avatar">${initials(p.name || '?')}</div>
+            <div>
+              <div class="header-name">${esc(p.name || '—')}</div>
+              <div class="header-sub">Perfil de Emergência · Lumina</div>
+            </div>
+          </div>
+          <div class="stats-bar">
+            <div class="stat"><div class="stat-val">${esc(p.supportLevel || '—')}</div><div class="stat-label">Nível</div></div>
+            <div class="stat"><div class="stat-val">${p.age ? p.age + ' anos' : '—'}</div><div class="stat-label">Idade</div></div>
+            <div class="stat"><div class="stat-val">${esc(p.bloodType || '—')}</div><div class="stat-label">Sangue</div></div>
+          </div>
+        </div>
+
+        ${hasContact ? `
+        <div class="emergency">
+          <div class="emergency-icon">🚨</div>
+          <div>
+            <div class="emergency-title">Contato de Emergência</div>
+            <div class="emergency-contact">
+              ${p.contactRelationship ? `<strong>${esc(p.contactRelationship)}</strong> — ` : ''}${esc(p.contactName)}
+              ${p.contactPhone ? `<br/><a href="tel:${p.contactPhone}">${esc(p.contactPhone)}</a>` : ''}
+            </div>
+          </div>
+        </div>` : ''}
+
+        ${SECTIONS.map(s => card(s, p[s.key])).join('')}
+
+        <div class="footer">
+          Gerado pelo app <strong>Lumina</strong> · Dados armazenados apenas no dispositivo
+        </div>
+      `;
+
+      // Toggle expand/collapse
+      document.querySelectorAll('.card-header').forEach(h => {
+        h.addEventListener('click', () => {
+          const body = h.nextElementSibling;
+          const chevron = h.querySelector('.chevron');
+          body.classList.toggle('hidden');
+          chevron.classList.toggle('open');
+        });
+      });
+    }
+
+    function card({ title, icon, bg }, text) {
+      const ls = lines(text);
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="icon-box" style="background:${bg}">${icon}</div>
+            <span class="card-title">${title}</span>
+            <span class="chevron open">▼</span>
+          </div>
+          <div class="card-body">
+            ${ls ? ls.map(l => `<div class="line"><span class="bullet">•</span><span>${esc(l)}</span></div>`).join('') : '<div class="empty">Nenhuma informação adicionada.</div>'}
+          </div>
+        </div>`;
+    }
+
+    function esc(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function load() {
+      const hash = location.hash.slice(1);
+      if (!hash) return;
+      try {
+        const json = atob(hash);
+        const profile = JSON.parse(json);
+        render(profile);
+      } catch {
+        document.getElementById('app').innerHTML = `
+          <div class="not-found">
+            <h2>QR Code inválido</h2>
+            <p>Não foi possível ler os dados do perfil.<br/>Peça um novo QR Code pelo app Lumina.</p>
+          </div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
